@@ -16,5 +16,3 @@ As quantum computing threatens classical cryptographic systems (like RSA and ECC
 - **Simulation Framework:** Qiskit / Python
 - **Core Concepts:** Pauli Eigenstates, Bell-State Entanglement, Projective Measurements, Statistical Hypothesis Testing
 
-## Getting Started
-*(Instructions for setup, installation, and running the simulation will be added here as development progresses.)*
