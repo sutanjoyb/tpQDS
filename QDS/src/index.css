@@ -1,25 +1,21 @@
 @import "tailwindcss";
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Enhances momentum scrolling on supported touch devices */
+    -webkit-overflow-scrolling: touch;
+  }
+
   body {
-    background-image:
-      linear-gradient(to right, #e5e5e5 1px, transparent 1px),
-      linear-gradient(to bottom, #e5e5e5 1px, transparent 1px);
-    background-size: 32px 32px;
-    background-color: #ffffff;
+    background-color: #faf9f5;
+    color: #171717;
+    /* Prevents layout jumps during dynamic animations */
+    overflow-x: hidden;
   }
 }
 
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #070a14;
-}
-::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+/* Custom easing curve for buttery smooth transitions */
+.smooth-transition {
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
