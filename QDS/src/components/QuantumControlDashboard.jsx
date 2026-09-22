@@ -1,399 +1,684 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  ShieldAlert,
-  Terminal,
-  Cpu,
-  RefreshCw,
-  Server,
-  Radio,
-  Lock,
-  Zap,
-} from "lucide-react";
+import gsap from "gsap";
 
-export default function QuantumControlDashboard() {
-  const [activeTab, setActiveTab] = useState("telemetry");
-  const [isRunning, setIsRunning] = useState(false);
-  const [nodeState, setNodeState] = useState("ACTIVE");
-  const [packets, setPackets] = useState({
-    transferred: 4096,
-    integrityCheck: "99.998%",
-    bitErrorRate: "0.0012%",
-    qubitDecoherence: "0.04 ms",
+export default function QuantumControlDashboard({ setActiveTab }) {
+  const [telemetry, setTelemetry] = useState({
+    entanglement: 0.0,
+    teleportation: 0.0,
+    noise: 0.0,
+    degradation: 0.0,
   });
 
-  const [auditLogs, setAuditLogs] = useState([
-    {
-      id: 1,
-      timestamp: "02:14:02",
-      severity: "OK",
-      source: "NODE_A_PHY",
-      event: "Bell-state polarization matched across fiber channel.",
-    },
-    {
-      id: 2,
-      timestamp: "02:14:08",
-      severity: "OK",
-      source: "BASIS_VERIFIER",
-      event: "Pauli-X and Pauli-Z projection measurement verified.",
-    },
-    {
-      id: 3,
-      timestamp: "02:14:15",
-      severity: "SYS",
-      source: "BUFFER_CORE",
-      event: "Quantum transmission window synchronized successfully.",
-    },
-  ]);
+  const [bits, setBits] = useState({
+    sent: "0000000000000000",
+    received: "0000000000000000",
+  });
 
-  const consoleRef = useRef(null);
+  const [quantumState, setQuantumState] = useState("IDLE");
+  const [errorRate, setErrorRate] = useState(0.0);
+  const [threatLevel, setThreatLevel] = useState("STANDBY");
+  const [isLiveActive, setIsLiveActive] = useState(false);
+  const [transmissionLogs, setTransmissionLogs] = useState([]);
+  const [auditReport, setAuditReport] = useState(null);
+  const [activeNav, setActiveNav] = useState("telemetry");
+
+  const containerRef = useRef(null);
+  const streamTimerRef = useRef(null);
 
   useEffect(() => {
-    if (consoleRef.current) {
-      consoleRef.current.scrollTop = consoleRef.current.scrollHeight;
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        containerRef.current.children,
+        {
+          opacity: 0,
+          y: 18,
+        },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.65,
+          stagger: 0.07,
+          ease: "power3.out",
+        },
+      );
+    }, containerRef);
+
+    return () => {
+      ctx.revert();
+
+      if (streamTimerRef.current) {
+        clearInterval(streamTimerRef.current);
+      }
+    };
+  }, []);
+
+  const executeTransmissionCycle = () => {
+    setQuantumState("SUPERPOSITION");
+
+    const generatedBits = Array.from({ length: 16 }, () =>
+      Math.random() > 0.5 ? "1" : "0",
+    ).join("");
+
+    const interceptAttempt = Math.random() > 0.7;
+
+    let evaluatedBits = generatedBits;
+
+    if (interceptAttempt) {
+      const targetBitIndex = Math.floor(Math.random() * 16);
+
+      evaluatedBits =
+        generatedBits.substring(0, targetBitIndex) +
+        (generatedBits[targetBitIndex] === "1" ? "0" : "1") +
+        generatedBits.substring(targetBitIndex + 1);
     }
-  }, [auditLogs]);
 
-  const executeNodeTest = () => {
-    if (isRunning) return;
-    setIsRunning(true);
-    setNodeState("PROBING");
+    setBits({
+      sent: generatedBits,
+      received: evaluatedBits,
+    });
 
-    setAuditLogs((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        severity: "SYS",
-        source: "EXEC_ENGINE",
-        event: "Initiating deterministic signature token transmission...",
-      },
-    ]);
+    let bitErrors = 0;
 
-    setTimeout(() => {
-      setAuditLogs((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          timestamp: new Date().toLocaleTimeString(),
-          severity: "OK",
-          source: "VERIFICATION_LOGIC",
-          event: "Information-theoretic bound satisfied. Token accepted.",
-        },
-      ]);
-      setNodeState("SECURED");
-      setIsRunning(false);
-    }, 1400);
-  };
+    for (let i = 0; i < 16; i++) {
+      if (generatedBits[i] !== evaluatedBits[i]) {
+        bitErrors++;
+      }
+    }
 
-  const simulateChannelIntrusion = () => {
-    if (isRunning) return;
-    setIsRunning(true);
-    setNodeState("INTERCEPTED");
+    const currentErrorRate = Number(((bitErrors / 16) * 100).toFixed(1));
 
-    setAuditLogs((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        severity: "ALERT",
-        source: "PHY_SENSOR",
-        event: "Anomalous photon count shift detected on fiber trunk.",
-      },
-      {
-        id: Date.now() + 1,
-        timestamp: new Date().toLocaleTimeString(),
-        severity: "ALERT",
-        source: "HW_INTERLOCK",
-        event: "No-cloning threshold violated: Superposition state collapsed.",
-      },
-    ]);
+    setErrorRate(currentErrorRate);
+
+    let status = "SECURE";
+
+    if (currentErrorRate > 10) {
+      status = "INTERCEPTED";
+    } else if (currentErrorRate > 0) {
+      status = "NOISE";
+    }
+
+    setThreatLevel(status);
+
+    const updatedMetrics = {
+      entanglement: Number((100 - currentErrorRate * 1.5).toFixed(1)),
+      teleportation: Number((97 - currentErrorRate * 2.1).toFixed(1)),
+      noise: Number((currentErrorRate + 0.8).toFixed(1)),
+      degradation: Number((currentErrorRate * 0.9).toFixed(1)),
+    };
+
+    setTelemetry(updatedMetrics);
+
+    const timestamp = new Date().toISOString().split("T")[1].slice(0, 8);
+
+    const logString = `[${timestamp}] SENT: ${generatedBits} | RECV: ${evaluatedBits} | ERR: ${currentErrorRate}% | ${status}`;
+
+    setTransmissionLogs((prevLogs) => [logString, ...prevLogs.slice(0, 6)]);
 
     setTimeout(() => {
-      setAuditLogs((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 2,
-          timestamp: new Date().toLocaleTimeString(),
-          severity: "DANGER",
-          source: "GATE_LOGIC",
-          event:
-            "REJECTED: Unauthorized interception dropped by physical rule.",
-        },
-      ]);
-      setNodeState("BLOCKED");
-      setIsRunning(false);
-    }, 1600);
+      setQuantumState(currentErrorRate > 10 ? "COLLAPSED" : "VERIFIED");
+    }, 400);
   };
+
+  const toggleLiveTelemetryStream = () => {
+    if (isLiveActive) {
+      clearInterval(streamTimerRef.current);
+      setIsLiveActive(false);
+      compileAuditReport();
+    } else {
+      setIsLiveActive(true);
+      setAuditReport(null);
+      executeTransmissionCycle();
+
+      streamTimerRef.current = setInterval(() => {
+        executeTransmissionCycle();
+      }, 1800);
+    }
+  };
+
+  const compileAuditReport = () => {
+    const reportData = {
+      timestamp: new Date().toLocaleString(),
+      avgEntanglement: telemetry.entanglement,
+      maxError: errorRate,
+      finalStatus: threatLevel,
+      totalPackets: transmissionLogs.length + 1,
+      conclusion:
+        errorRate > 10 ? "REJECTED: Tampering detected." : "PASSED: Verified.",
+    };
+
+    setAuditReport(reportData);
+  };
+
+  const statusColor =
+    threatLevel === "INTERCEPTED"
+      ? "text-red-400"
+      : threatLevel === "NOISE"
+        ? "text-amber-400"
+        : "text-emerald-400";
 
   return (
-    <div className="pt-28 pb-24 px-6 max-w-7xl mx-auto relative overflow-hidden font-mono">
-      <div className="absolute inset-0 bg-[radial-gradient(#0284c7_1px,transparent_1px)] [background-size:32px_32px] opacity-15 pointer-events-none" />
-
-      <div className="mb-8 pb-6 border-b border-neutral-300 flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-sky-700 font-bold uppercase tracking-widest mb-1">
-            <Radio className="w-3.5 h-3.5 animate-pulse" /> SECURE_NODE_ALPHA //
-            DIRECT_CHANNEL
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-serif text-neutral-950 font-normal">
-            Deterministic Teleportation & Cryptographic Testbed
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-neutral-300 shadow-2xs text-xs">
-          <button
-            onClick={() => setActiveTab("telemetry")}
-            className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === "telemetry" ? "bg-neutral-950 text-white font-semibold" : "text-neutral-600 hover:text-neutral-950"}`}
-          >
-            Topology & Diagnostics
-          </button>
-          <button
-            onClick={() => setActiveTab("audit")}
-            className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${activeTab === "audit" ? "bg-neutral-950 text-white font-semibold" : "text-neutral-600 hover:text-neutral-950"}`}
-          >
-            Hardware Console Logs
-          </button>
-        </div>
+    <div
+      ref={containerRef}
+      className="relative h-screen w-full overflow-hidden bg-[#05070a] text-slate-100 font-sans selection:bg-cyan-400/20"
+    >
+      <div className="pointer-events-none absolute inset-0 opacity-40">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(34,211,238,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.035) 1px, transparent 1px)",
+            backgroundSize: "42px 42px",
+          }}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white border border-neutral-300 rounded-2xl p-6 shadow-xs relative">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-sky-600 rounded-t-2xl" />
-            <span className="text-[10px] text-neutral-400 uppercase tracking-widest block mb-1">
-              OPERATIONAL CONTROLS
-            </span>
-            <h3 className="text-lg font-bold text-neutral-950 mb-4 flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-sky-600" /> Command & Interlock
-            </h3>
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-cyan-500/[0.035] blur-[130px]" />
 
-            <div className="space-y-3">
+      <aside className="relative z-10 w-full border-b border-cyan-400/10 bg-[#070a0f]/90 backdrop-blur-xl md:fixed md:left-0 md:top-0 md:flex md:h-screen md:w-[280px] md:flex-col md:border-b-0 md:border-r">
+        <div className="flex h-full flex-col justify-between p-6">
+          <div>
+            <div className="mb-10 border-b border-slate-800/70 pb-7">
               <button
-                onClick={executeNodeTest}
-                disabled={isRunning}
-                className="w-full flex items-center justify-center gap-2 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold uppercase tracking-wider py-3 rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                onClick={() => {
+                  if (setActiveTab) {
+                    setActiveTab("home");
+                    window.scrollTo({
+                      top: 0,
+                      behavior: "smooth",
+                    });
+                  }
+                }}
+                className="mb-8 flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 transition-all hover:translate-x-1 hover:text-cyan-300"
               >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${isRunning ? "animate-spin" : ""}`}
-                />
-                Transmit Test Token
+                <span>←</span>
+                Return to Workspace
               </button>
 
-              <button
-                onClick={simulateChannelIntrusion}
-                disabled={isRunning}
-                className="w-full flex items-center justify-center gap-2 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold uppercase tracking-wider py-3 rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-xs"
-              >
-                <ShieldAlert className="w-3.5 h-3.5" />
-                Trigger Fiber Probe Attack
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-cyan-400/30 bg-cyan-400/5">
+                  <div className="h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.9)]" />
+                  <div className="absolute inset-2 animate-[spin_6s_linear_infinite] rounded-full border border-dashed border-cyan-400/30" />
+                </div>
+
+                <div>
+                  <span className="block text-[9px] font-mono uppercase tracking-[0.25em] text-cyan-400">
+                    Architecture
+                  </span>
+
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">
+                    QDS Protocol
+                  </h2>
+                </div>
+              </div>
             </div>
+
+            <nav className="space-y-1.5 font-mono text-[10px]">
+              {[
+                ["telemetry", "01", "Overview"],
+                ["bitstream", "02", "Bitstreams"],
+                ["engine", "03", "Engine Logic"],
+                ["logs", "04", "Archive Log"],
+              ].map(([id, number, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveNav(id)}
+                  className={`group relative flex w-full items-center justify-between overflow-hidden rounded-lg border px-4 py-3.5 text-left uppercase tracking-[0.16em] transition-all duration-300 ${
+                    activeNav === id
+                      ? "border-cyan-400/20 bg-cyan-400/[0.07] text-cyan-300"
+                      : "border-transparent text-slate-500 hover:border-slate-800 hover:bg-white/[0.025] hover:text-slate-200"
+                  }`}
+                >
+                  <span className="relative z-10 flex items-center gap-3">
+                    <span
+                      className={
+                        activeNav === id ? "text-cyan-400" : "text-slate-700"
+                      }
+                    >
+                      {number}
+                    </span>
+
+                    {label}
+                  </span>
+
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
+                      activeNav === id
+                        ? "bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.8)]"
+                        : "bg-slate-800 group-hover:bg-slate-600"
+                    }`}
+                  />
+
+                  {activeNav === id && (
+                    <span className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+                  )}
+                </button>
+              ))}
+            </nav>
           </div>
 
-          <div className="bg-white border border-neutral-300 rounded-2xl p-6 shadow-xs space-y-4">
-            <span className="text-[10px] text-neutral-400 uppercase tracking-widest block mb-1">
-              HARDWARE TELEMETRY
-            </span>
-            <h3 className="text-lg font-bold text-neutral-950 flex items-center gap-2 border-b border-neutral-200 pb-3">
-              <Zap className="w-4 h-4 text-sky-600" /> Physical Parameters
-            </h3>
+          <div className="hidden rounded-xl border border-slate-800/70 bg-[#090d14] p-4 md:block">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-slate-600">
+                Stream Status
+              </span>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-[#faf9f5] p-3 rounded-xl border border-neutral-200">
-                <span className="text-[10px] uppercase text-neutral-400 block mb-1">
-                  Active Bell Pairs
-                </span>
-                <span className="text-sm font-bold text-neutral-900">
-                  {packets.transferred}
-                </span>
-              </div>
-              <div className="bg-[#faf9f5] p-3 rounded-xl border border-neutral-200">
-                <span className="text-[10px] uppercase text-neutral-400 block mb-1">
-                  Channel Fidelity
-                </span>
-                <span className="text-sm font-bold text-emerald-700">
-                  {packets.integrityCheck}
-                </span>
-              </div>
-              <div className="bg-[#faf9f5] p-3 rounded-xl border border-neutral-200">
-                <span className="text-[10px] uppercase text-neutral-400 block mb-1">
-                  Bit Error Rate
-                </span>
-                <span className="text-sm font-bold text-sky-700">
-                  {packets.bitErrorRate}
-                </span>
-              </div>
-              <div className="bg-[#faf9f5] p-3 rounded-xl border border-neutral-200">
-                <span className="text-[10px] uppercase text-neutral-400 block mb-1">
-                  Decoherence Time
-                </span>
-                <span className="text-sm font-bold text-neutral-900">
-                  {packets.qubitDecoherence}
-                </span>
-              </div>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  isLiveActive
+                    ? "animate-pulse bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]"
+                    : "bg-slate-700"
+                }`}
+              />
+            </div>
+
+            <div
+              className={`font-mono text-[10px] font-semibold tracking-wider ${
+                isLiveActive ? "text-emerald-400" : "text-slate-400"
+              }`}
+            >
+              {isLiveActive ? "ACTIVE_TELEMETRY" : "SYSTEM_IDLE"}
+            </div>
+
+            <div className="mt-3 h-px bg-slate-800" />
+
+            <div className="mt-3 flex justify-between text-[8px] font-mono uppercase text-slate-600">
+              <span>Node</span>
+              <span>QDS-01</span>
             </div>
           </div>
         </div>
+      </aside>
 
-        <div className="lg:col-span-8 space-y-6">
-          <div className="bg-white border border-neutral-300 rounded-2xl p-4 flex items-center justify-between shadow-xs">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-3 h-3 rounded-full ${nodeState === "SECURED" || nodeState === "BLOCKED" ? "bg-emerald-500 animate-pulse" : nodeState === "PROBING" ? "bg-amber-500 animate-pulse" : "bg-sky-600"}`}
-              />
-              <div>
-                <span className="text-[10px] uppercase text-neutral-400 block">
-                  Hardware Interlock State
-                </span>
-                <span className="text-xs font-bold text-neutral-950 uppercase tracking-wide">
-                  {nodeState === "ACTIVE" && "Node Synchronized / Standby"}
-                  {nodeState === "PROBING" &&
-                    "Evaluating Pauli Basis Matrices..."}
-                  {nodeState === "SECURED" &&
-                    "Token Validated via Quantum Matrix"}
-                  {nodeState === "INTERCEPTED" &&
-                    "Physical Probe / Eavesdropping Detected"}
-                  {nodeState === "BLOCKED" &&
-                    "Transmission Cleared & Discarded"}
+      <main className="relative z-10 h-screen overflow-y-auto md:ml-[280px]">
+        <div className="mx-auto max-w-[1500px] p-5 sm:p-8 lg:p-12">
+          <div className="mb-8 flex flex-col justify-between gap-6 border-b border-slate-800/70 pb-7 lg:flex-row lg:items-end">
+            <div>
+              <div className="mb-3 flex items-center gap-3">
+                <span className="h-px w-8 bg-cyan-400" />
+
+                <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-cyan-400">
+                  Execution Node
                 </span>
               </div>
+
+              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">
+                Quantum Control <span className="text-cyan-400">Room</span>
+              </h1>
+
+              <p className="mt-2 max-w-xl text-xs leading-relaxed text-slate-500">
+                Real-time quantum transmission monitoring, deterministic threat
+                analysis and protocol verification.
+              </p>
             </div>
-            <span className="text-[11px] uppercase bg-[#faf9f5] border border-neutral-200 px-3 py-1 rounded-lg text-neutral-600">
-              Deterministic Logic Only
-            </span>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={executeTransmissionCycle}
+                disabled={isLiveActive}
+                className="group relative overflow-hidden border border-slate-700 bg-[#0a0e15] px-5 py-3 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-300 transition-all duration-300 hover:border-cyan-400/40 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <span className="relative z-10">Test Single Pulse</span>
+
+                <span className="absolute inset-0 -translate-x-full bg-cyan-400/[0.05] transition-transform duration-500 group-hover:translate-x-0" />
+              </button>
+
+              <button
+                onClick={toggleLiveTelemetryStream}
+                className={`relative overflow-hidden px-6 py-3 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] transition-all duration-300 ${
+                  isLiveActive
+                    ? "bg-amber-500 text-black shadow-[0_0_25px_rgba(245,158,11,0.15)]"
+                    : "bg-cyan-400 text-black shadow-[0_0_25px_rgba(34,211,238,0.12)] hover:bg-cyan-300"
+                }`}
+              >
+                {isLiveActive ? "Halt Stream" : "Initialize Stream"}
+              </button>
+            </div>
           </div>
 
-          {activeTab === "telemetry" ? (
-            <div className="space-y-6">
-              <div className="bg-white border border-neutral-300 rounded-2xl p-8 shadow-xs space-y-6">
-                <div>
-                  <span className="text-[10px] text-neutral-400 uppercase tracking-widest block mb-1">
-                    TOPOLOGY ARCHITECTURE
+          {(activeNav === "telemetry" || activeNav === "engine") && (
+            <div className="mb-8 grid grid-cols-1 gap-px overflow-hidden border border-slate-800/70 bg-slate-800/50 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Entanglement Purity", telemetry.entanglement, "cyan"],
+                ["Teleportation Index", telemetry.teleportation, "cyan"],
+                ["Channel Noise", telemetry.noise, "slate"],
+                ["Degradation Factor", telemetry.degradation, "slate"],
+              ].map(([label, value, color], index) => (
+                <div
+                  key={label}
+                  className="group relative bg-[#080c12] p-6 transition-all duration-500 hover:bg-[#0b1119]"
+                >
+                  <div className="absolute left-0 top-0 h-px w-0 bg-cyan-400 transition-all duration-500 group-hover:w-full" />
+
+                  <div className="mb-5 flex items-center justify-between">
+                    <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-slate-600">
+                      0{index + 1}
+                    </span>
+
+                    <span className="h-1 w-1 rounded-full bg-slate-700 transition-all group-hover:bg-cyan-400 group-hover:shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                  </div>
+
+                  <span className="block text-[9px] font-mono uppercase tracking-[0.17em] text-slate-500">
+                    {label}
                   </span>
-                  <h3 className="text-xl font-bold text-neutral-950 flex items-center gap-2">
-                    <Server className="w-5 h-5 text-sky-600" /> End-to-End Node
-                    Architecture
-                  </h3>
+
+                  <div className="mt-3 flex items-end gap-1">
+                    <span className="text-3xl font-semibold tracking-tight text-white">
+                      {value}
+                    </span>
+
+                    <span className="mb-1 text-xs text-slate-600">%</span>
+                  </div>
+
+                  <div className="mt-5 h-[2px] w-full bg-slate-900">
+                    <div
+                      className={`h-full transition-all duration-700 ${
+                        color === "cyan"
+                          ? "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"
+                          : "bg-slate-500"
+                      }`}
+                      style={{
+                        width:
+                          label === "Channel Noise" ||
+                          label === "Degradation Factor"
+                            ? `${value * 10}%`
+                            : `${value}%`,
+                      }}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-neutral-600 font-light leading-relaxed font-sans">
-                  Direct hardware-level schematic showing cryptographic token
-                  handling across isolated fiber nodes using entanglement
-                  protocols.
-                </p>
+              ))}
+            </div>
+          )}
 
-                <div className="bg-[#faf9f5] border border-neutral-200 rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="w-full max-w-md flex items-center justify-between relative px-4 z-10 my-4">
-                    <div className="absolute top-1/2 left-8 right-8 h-0.5 bg-neutral-300 -translate-y-1/2 z-0" />
+          {(activeNav === "telemetry" || activeNav === "bitstream") && (
+            <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[0.8fr_1.5fr]">
+              <div className="group relative overflow-hidden border border-slate-800/70 bg-[#080c12] p-7">
+                <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-cyan-400/[0.025] blur-3xl transition-all duration-700 group-hover:bg-cyan-400/[0.06]" />
 
-                    <div className="bg-white border border-neutral-300 px-4 py-3 rounded-xl shadow-2xs text-center z-15">
-                      <span className="text-[9px] text-neutral-400 block uppercase">
-                        Endpoint
+                <div className="relative">
+                  <div className="mb-7 flex items-center justify-between">
+                    <div>
+                      <span className="text-[9px] font-mono uppercase tracking-[0.22em] text-cyan-400">
+                        Wave Mechanics
                       </span>
-                      <span className="text-xs font-bold text-neutral-900">
-                        NODE_A
-                      </span>
+
+                      <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                        Quantum Collapse
+                      </h3>
                     </div>
 
-                    <div className="bg-neutral-950 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-sm z-15">
-                      Ψ⁺
-                    </div>
-
-                    <div className="bg-white border border-neutral-300 px-4 py-3 rounded-xl shadow-2xs text-center z-15">
-                      <span className="text-[9px] text-neutral-400 block uppercase">
-                        Endpoint
-                      </span>
-                      <span className="text-xs font-bold text-neutral-900">
-                        NODE_B
-                      </span>
+                    <div className="h-8 w-8 border border-cyan-400/20">
+                      <div className="h-full w-full animate-pulse bg-cyan-400/[0.04]" />
                     </div>
                   </div>
 
-                  <div className="text-center text-[11px] text-neutral-500 mt-2 z-10 flex items-center gap-1.5">
-                    <Lock className="w-3 h-3 text-emerald-600" /> Protocol
-                    Status:{" "}
-                    <span className="text-emerald-700 font-bold">
-                      Encrypted via Bell-State Parameters
-                    </span>
+                  <p className="max-w-md text-xs leading-6 text-slate-500">
+                    External measurement attempts immediately collapse
+                    superpositional states into classical values.
+                  </p>
+
+                  <div className="mt-8 border border-slate-800 bg-[#05080d] p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-slate-600">
+                        Current Vector State
+                      </span>
+
+                      <span className="text-[8px] font-mono text-cyan-500">
+                        LIVE
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex h-12 w-12 items-center justify-center">
+                        <div className="absolute inset-0 animate-ping rounded-full border border-cyan-400/20" />
+
+                        <div className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.9)]" />
+                      </div>
+
+                      <div className="font-mono text-sm font-bold tracking-[0.2em] text-cyan-300">
+                        {quantumState}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-sky-50/50 via-white to-neutral-50 border-2 border-dashed border-sky-300 rounded-2xl p-8 text-center space-y-3">
-                <span className="text-[10px] text-sky-700 uppercase tracking-widest block font-bold">
-                  DAEMON HOOK
-                </span>
-                <div className="w-10 h-10 mx-auto rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
-                  <Terminal className="w-5 h-5" />
+              <div className="relative overflow-hidden border border-slate-800/70 bg-[#080c12] p-7">
+                <div className="mb-7 flex items-end justify-between border-b border-slate-800/70 pb-5">
+                  <div>
+                    <span className="text-[9px] font-mono uppercase tracking-[0.22em] text-cyan-400">
+                      Bitstream Comparison
+                    </span>
+
+                    <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                      Transmission Matrix
+                    </h3>
+                  </div>
+
+                  <span className="hidden font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600 sm:block">
+                    16-BIT CHANNEL
+                  </span>
                 </div>
-                <h4 className="text-sm font-bold text-neutral-900 uppercase">
-                  Backend Simulator Daemon Integration Slot
-                </h4>
-                <p className="text-xs text-neutral-600 max-w-md mx-auto font-sans font-light leading-relaxed">
-                  Placeholder reserved for external hardware daemon connection
-                  scripts, real-time telemetry streaming hooks, and custom
-                  cryptographic algorithm modules.
-                </p>
-                <div className="inline-block px-3 py-1 bg-sky-100 text-sky-800 text-[10px] rounded-md border border-sky-200 uppercase font-bold">
-                  Status: Awaiting Daemon Socket
+
+                <div className="space-y-3 font-mono">
+                  <div className="group flex flex-col gap-3 border border-slate-800 bg-[#05080d] p-4 transition-all duration-300 hover:border-cyan-400/20 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="h-1.5 w-1.5 bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+
+                      <span className="text-[9px] uppercase tracking-wider text-slate-500">
+                        Alice Sent
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto text-xs font-bold tracking-[0.3em] text-cyan-200">
+                      {bits.sent}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <div className="h-5 w-px bg-gradient-to-b from-cyan-400/50 to-transparent" />
+                  </div>
+
+                  <div className="group flex flex-col gap-3 border border-slate-800 bg-[#05080d] p-4 transition-all duration-300 hover:border-cyan-400/20 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="h-1.5 w-1.5 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+
+                      <span className="text-[9px] uppercase tracking-wider text-slate-500">
+                        Bob Recv
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto text-xs font-bold tracking-[0.3em] text-cyan-200">
+                      {bits.received}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="bg-neutral-950 text-neutral-200 rounded-2xl p-6 text-xs shadow-lg border border-neutral-800 space-y-4">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-3 text-neutral-400">
-                <span className="flex items-center gap-2 text-sky-400 font-bold">
-                  <Terminal className="w-4 h-4" />{" "}
-                  root@qds-daemon:/var/log/crypto_stream#
-                </span>
-                <span className="text-[10px] uppercase bg-neutral-900 px-2.5 py-1 rounded border border-neutral-800 text-emerald-400">
-                  Buffer Active
-                </span>
-              </div>
+          )}
 
-              <div
-                ref={consoleRef}
-                className="space-y-3 overflow-y-auto max-h-72 pr-2 font-mono text-[11px]"
-              >
-                {auditLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-start gap-3 leading-relaxed border-b border-neutral-900 pb-2"
-                  >
-                    <span className="text-neutral-500 shrink-0">
-                      [{log.timestamp}]
+          {(activeNav === "telemetry" ||
+            activeNav === "engine" ||
+            activeNav === "logs") && (
+            <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div className="relative overflow-hidden border border-slate-800/70 bg-[#080c12] p-7">
+                <div className="absolute right-0 top-0 h-px w-32 bg-gradient-to-l from-cyan-400 to-transparent" />
+
+                <div className="mb-7">
+                  <span className="text-[9px] font-mono uppercase tracking-[0.22em] text-cyan-400">
+                    Deterministic Engine
+                  </span>
+
+                  <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                    Threat Level Analysis
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-px overflow-hidden border border-slate-800/70 bg-slate-800/70">
+                  <div className="bg-[#05080d] p-5">
+                    <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-slate-600">
+                      Calculated Error
                     </span>
-                    <span
-                      className={`font-bold shrink-0 px-1.5 py-0.5 rounded text-[9px] ${
-                        log.severity === "OK"
-                          ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                          : log.severity === "ALERT" ||
-                              log.severity === "DANGER"
-                            ? "bg-rose-950 text-rose-400 border border-rose-800"
-                            : log.severity === "SYS"
-                              ? "bg-sky-950 text-sky-400 border border-sky-800"
-                              : "bg-neutral-900 text-amber-400"
-                      }`}
-                    >
-                      {log.severity}
-                    </span>
-                    <span className="text-neutral-400 font-bold">
-                      [{log.source}]
-                    </span>
-                    <span className="text-neutral-300">{log.event}</span>
+
+                    <div className="mt-3 text-2xl font-semibold text-white">
+                      {errorRate}%
+                    </div>
                   </div>
-                ))}
+
+                  <div className="bg-[#05080d] p-5">
+                    <span className="text-[8px] font-mono uppercase tracking-[0.18em] text-slate-600">
+                      System Security
+                    </span>
+
+                    <div
+                      className={`mt-4 text-xs font-bold uppercase tracking-wider ${statusColor}`}
+                    >
+                      {threatLevel}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="mb-2 flex justify-between text-[8px] font-mono uppercase tracking-[0.18em]">
+                    <span className="text-slate-600">Threat Assessment</span>
+
+                    <span className={statusColor}>{errorRate}%</span>
+                  </div>
+
+                  <div className="h-1 bg-slate-900">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        threatLevel === "INTERCEPTED"
+                          ? "bg-red-400"
+                          : threatLevel === "NOISE"
+                            ? "bg-amber-400"
+                            : "bg-emerald-400"
+                      }`}
+                      style={{
+                        width: `${Math.min(errorRate * 5, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="pt-2 border-t border-neutral-900 flex justify-between text-[10px] text-neutral-500">
-                <span>Buffer Size: {auditLogs.length} Entries</span>
-                <span className="text-emerald-400 font-bold">
-                  Hardware Status: Nominal
+              <div className="relative overflow-hidden border border-slate-800/70 bg-[#080c12] p-7">
+                <div className="mb-7 flex items-end justify-between">
+                  <div>
+                    <span className="text-[9px] font-mono uppercase tracking-[0.22em] text-cyan-400">
+                      Event Ledger
+                    </span>
+
+                    <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                      Telemetry Log History
+                    </h3>
+                  </div>
+
+                  <span className="text-[8px] font-mono text-slate-600">
+                    {transmissionLogs.length} EVENTS
+                  </span>
+                </div>
+
+                <div className="h-36 overflow-y-auto border border-slate-800 bg-[#05080d] p-4 font-mono text-[9px] leading-6">
+                  {transmissionLogs.length === 0 ? (
+                    <span className="text-slate-700">
+                      No historical entries available. Run a pulse or start
+                      stream.
+                    </span>
+                  ) : (
+                    transmissionLogs.map((item, index) => (
+                      <div
+                        key={index}
+                        className="border-b border-slate-900 py-1 text-slate-500 transition-colors hover:text-cyan-300"
+                      >
+                        <span className="mr-2 text-cyan-500">{">"}</span>
+
+                        {item}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {auditReport && (
+            <div className="relative overflow-hidden border border-cyan-400/20 bg-[#080c12] p-7 shadow-[0_0_50px_rgba(34,211,238,0.035)]">
+              <div className="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-400/70 to-transparent" />
+
+              <div className="mb-7 flex flex-col justify-between gap-3 border-b border-slate-800/70 pb-5 sm:flex-row sm:items-center">
+                <div>
+                  <span className="text-[9px] font-mono uppercase tracking-[0.22em] text-cyan-400">
+                    Security Audit
+                  </span>
+
+                  <h3 className="mt-2 text-lg font-semibold text-white">
+                    Comprehensive Audit Verdict
+                  </h3>
+                </div>
+
+                <span className="font-mono text-[9px] text-slate-600">
+                  {auditReport.timestamp}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-px overflow-hidden border border-slate-800/70 bg-slate-800/70 sm:grid-cols-4">
+                <div className="bg-[#05080d] p-5">
+                  <span className="text-[8px] font-mono uppercase tracking-wider text-slate-600">
+                    Avg Entanglement
+                  </span>
+
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {auditReport.avgEntanglement}%
+                  </div>
+                </div>
+
+                <div className="bg-[#05080d] p-5">
+                  <span className="text-[8px] font-mono uppercase tracking-wider text-slate-600">
+                    Max Error Rate
+                  </span>
+
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {auditReport.maxError}%
+                  </div>
+                </div>
+
+                <div className="bg-[#05080d] p-5">
+                  <span className="text-[8px] font-mono uppercase tracking-wider text-slate-600">
+                    Total Packets
+                  </span>
+
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {auditReport.totalPackets}
+                  </div>
+                </div>
+
+                <div className="bg-[#05080d] p-5">
+                  <span className="text-[8px] font-mono uppercase tracking-wider text-slate-600">
+                    Final Verdict
+                  </span>
+
+                  <div className="mt-2 text-sm font-bold uppercase text-cyan-300">
+                    {auditReport.finalStatus}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center gap-3 border border-slate-800 bg-[#05080d] p-4">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    auditReport.maxError > 10 ? "bg-red-400" : "bg-emerald-400"
+                  }`}
+                />
+
+                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-slate-400">
+                  {auditReport.conclusion}
                 </span>
               </div>
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
